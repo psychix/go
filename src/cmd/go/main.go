@@ -179,11 +179,17 @@ BigCmdLoop:
 				continue
 			}
 			cmd.Flag.Usage = func() { cmd.Usage() }
+			// 子命令是否在内部有自定义的flag
+			// 如果有则直接把args丢进去，没有的话就走通用流程处理
 			if cmd.CustomFlags {
 				args = args[1:]
 			} else {
+				// 这个函数把$GOFLAGS环境变量里的flag解析到cmd.Flagset里,为命令debug信息打印准备的
 				base.SetFromGOFLAGS(cmd.Flag)
+				// 根据flag name 解析所有args里面的value
+				// flag name由程序初始化的时候的全局变量&init函数进行注册
 				cmd.Flag.Parse(args[1:])
+				// flag 解析后生下来的就是非flag 参数了
 				args = cmd.Flag.Args()
 			}
 			cmd.Run(cmd, args)
