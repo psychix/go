@@ -87,11 +87,16 @@ func runDownload(cmd *base.Command, args []string) {
 	}
 	if len(args) == 0 {
 		args = []string{"all"}
+		// modload.HasModRoot 判断当前是否gomod模式，当前文件夹是否有go.mod作为一个module的根目录
 	} else if modload.HasModRoot() {
+		// modload.InitMod 解析了当前文件夹下的go.mod文件，把go.mod解析到modfile.File结构体中
+		// 并且将结构体实体赋值到modload.Target
+		// module/module.Version 结构体的具体含义是go.mod 文件中的每一行的每一个module
 		modload.InitMod() // to fill Target
 		targetAtLatest := modload.Target.Path + "@latest"
 		targetAtUpgrade := modload.Target.Path + "@upgrade"
 		targetAtPatch := modload.Target.Path + "@patch"
+		// 如果download的参数里有go.mod声明的main module， 则报错。因为不能&也没用意义去下载main module
 		for _, arg := range args {
 			switch arg {
 			case modload.Target.Path, targetAtLatest, targetAtUpgrade, targetAtPatch:
@@ -100,10 +105,15 @@ func runDownload(cmd *base.Command, args []string) {
 		}
 	}
 
+	// module 的下载情况记录
 	var mods []*moduleJSON
+	// work 并发下载任务管理?
 	var work par.Work
 	listU := false
 	listVersions := false
+	// 通过 	buildList, err = mvs.BuildList(Target, reqs)
+	// 使用mvs最小版本选择包的函数解析 target下path 的所有imports ？
+	//
 	for _, info := range modload.ListModules(args, listU, listVersions) {
 		if info.Replace != nil {
 			info = info.Replace
