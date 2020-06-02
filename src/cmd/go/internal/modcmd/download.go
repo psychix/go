@@ -90,7 +90,7 @@ func runDownload(cmd *base.Command, args []string) {
 		// modload.HasModRoot 判断当前是否gomod模式，当前文件夹是否有go.mod作为一个module的根目录
 	} else if modload.HasModRoot() {
 		// modload.InitMod 解析了当前文件夹下的go.mod文件，把go.mod解析到modfile.File结构体中
-		// 并且将结构体实体赋值到modload.Target
+		// gomod 第一行 信息 解析到Target中
 		// module/module.Version 结构体的具体含义是go.mod 文件中的每一行的每一个module
 		modload.InitMod() // to fill Target
 		targetAtLatest := modload.Target.Path + "@latest"
@@ -105,16 +105,31 @@ func runDownload(cmd *base.Command, args []string) {
 		}
 	}
 
-	// module 的下载情况记录
+	// module 的解析结构体
 	var mods []*moduleJSON
-	// work 并发下载任务管理?
+	// work 并发任务定义结构体
 	var work par.Work
 	listU := false
 	listVersions := false
-	// 通过 	buildList, err = mvs.BuildList(Target, reqs)
-	// 使用mvs最小版本选择包的函数解析 target下path 的所有imports ？
-	//
+	// 获取go.mod所有的模块，如果命令行参数有指定则会进行匹配，如果没有，则直接就是全部
+	// 并且把go.mod匹配的模块都进行更加详细的info查询，
+	// type ModulePublic struct {
+	//    Path      string        `json:",omitempty"` // module path
+	//    Version   string        `json:",omitempty"` // module version
+	//    Versions  []string      `json:",omitempty"` // available module versions
+	//    Replace   *ModulePublic `json:",omitempty"` // replaced by this module
+	//    Time      *time.Time    `json:",omitempty"` // time version was created
+	//    Update    *ModulePublic `json:",omitempty"` // available update (with -u)
+	//    Main      bool          `json:",omitempty"` // is this the main module?
+	//    Indirect  bool          `json:",omitempty"` // module is only indirectly needed by main module
+	//    Dir       string        `json:",omitempty"` // directory holding local copy of files, if any
+	//    GoMod     string        `json:",omitempty"` // path to go.mod file describing module, if any
+	//    GoVersion string        `json:",omitempty"` // go version used in module
+	//    Error     *ModuleError  `json:",omitempty"` // error loading module
+	//}
+
 	for _, info := range modload.ListModules(args, listU, listVersions) {
+		// 判断是否有replace对应到当前的module，如果有则替换后加入modsJSON。
 		if info.Replace != nil {
 			info = info.Replace
 		}
@@ -132,9 +147,11 @@ func runDownload(cmd *base.Command, args []string) {
 			m.Error = info.Error.Err
 			continue
 		}
+		// 解析完成的任务加入work结构体任务数据
 		work.Add(m)
 	}
 
+	// 执行work结构体所制定的Do函数，指定并发数和执行函数
 	work.Do(10, func(item interface{}) {
 		m := item.(*moduleJSON)
 		var err error

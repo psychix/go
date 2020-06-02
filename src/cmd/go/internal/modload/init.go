@@ -39,8 +39,13 @@ var (
 	mustUseModules = false
 	initialized    bool
 
+    // 从当前目录最近的一处路径拥有go.mod的路径
 	modRoot string
 	Target  module.Version
+    // type Version struct {
+    //        Path string
+    //        Version string
+    //  }
 
 	// targetPrefix is the path prefix for packages in Target, without a trailing
 	// slash. For most modules, targetPrefix is just Target.Path, but the
@@ -60,6 +65,19 @@ var (
 )
 
 var modFile *modfile.File
+//type File struct {
+//    Module  *Module
+//    Go      *Go
+//    Require []*Require
+//    Exclude []*Exclude
+//    Replace []*Replace
+
+//    Syntax *FileSyntax
+//}
+//type Module struct {
+//    Mod    module.Version
+//    Syntax *Line
+//}
 
 // A modFileIndex is an index of data corresponding to a modFile
 // at a specific point in time.
@@ -105,6 +123,8 @@ func BinDir() string {
 // current module (if any), sets environment variables for Git subprocesses, and
 // configures the cfg, codehost, load, modfetch, and search packages for use
 // with modules.
+// 获取GO111MODULE，获取mod root 路径，初始化缓存路径，将当前目录的初始化函数赋值给
+// load模块对应的处理函数
 func Init() {
 	if initialized {
 		return
@@ -155,9 +175,12 @@ func Init() {
 	}
 
 	if CmdModInit {
+        // go mod init 命令也会执行这个init函数，如果是go mod init执行进入这里，
+        // 当前目录就一定是modroot目录，就不需要再查找一次了
 		// Running 'go mod init': go.mod will be created in current directory.
 		modRoot = base.Cwd
 	} else {
+        // 递归从当前目录处查找拥有go.mod的目录
 		modRoot = findModuleRoot(base.Cwd)
 		if modRoot == "" {
 			if cfg.ModFile != "" {
@@ -381,6 +404,7 @@ func InitMod() {
 	}
 
 	Init()
+    // 如果当前的路径以及上层路径都找不到go.mod文件，则modRoot为空
 	if modRoot == "" {
 		Target = module.Version{Path: "command-line-arguments"}
 		targetPrefix = "command-line-arguments"
@@ -388,6 +412,7 @@ func InitMod() {
 		return
 	}
 
+    // 判断当前执行的命令是否是go mod init
 	if CmdModInit {
 		// Running go mod init: do legacy module conversion
 		legacyModInit()
